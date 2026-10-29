@@ -345,36 +345,99 @@ function noteBox(st, sub, si, mode, print) {
   return `<aside class="notebox"><h3>上原コメント</h3><p>${esc(sub.comment) || '<span class="muted">（コメントなし）</span>'}</p>${mode === 'admin' && !print ? `<div class="ed"><button class="linkbtn" data-act="edit-comment" data-id="${esc(st.id)}" data-si="${si}">コメントを編集</button></div>` : ''}</aside>`;
 }
 
+const SUBJ_COLOR = ['var(--accent)', 'var(--ok)', 'var(--half)', 'var(--rest)'];
+const modeCtlHtml = (st, m) => `<div class="mode" role="group" aria-label="遅れたときの調整方法"><button data-act="mode" data-id="${esc(st.id)}" data-mat="${esc(m.id)}" data-mode="shift" aria-pressed="${m.mode !== 'fit'}">後ろにずらす</button><button data-act="mode" data-id="${esc(st.id)}" data-mat="${esc(m.id)}" data-mode="fit" aria-pressed="${m.mode === 'fit'}">期限内に詰める</button></div>`;
+
+// スマホ向け：週ごとに「その週にやること」を縦に並べる
+function agendaView(st, mode) {
+  const editable = mode !== 'student';
+  const all = windowWeeks();
+  const curMonth = ui.span === 3 && ui.base === WEEKS[TODAY].y * 12 + (WEEKS[TODAY].m - 1);
+  const hiddenPast = curMonth && !ui.showPast ? all.filter(i => i < TODAY) : [];
+  const weeks = all.filter(i => hiddenPast.indexOf(i) < 0);
+  const list = [];
+  st.subjects.forEach((sub, si) => sub.materials.forEach(m => list.push({ sub, si, m, r: schedule(st, m) })));
+  const weekHtml = i => {
+    const w = WEEKS[i], ws = st.weekStatus[w.iso];
+    const rows = list.filter(x => { const c = x.r.cells[i]; return c && (c.items.length || c.actual != null); }).map(x => {
+      const c = x.r.cells[i];
+      const late = c.items.length && i > x.r.dl;
+      const state = c.actual == null ? '' : (c.actual < c.planned ? `<span class="ag-short">残り${c.planned - c.actual}は翌週へ</span>` : `<span class="ag-done">✓ 完了</span>`);
+      const inner = `<span class="ag-sub" style="--c:${SUBJ_COLOR[x.si % 4]}">${esc(x.sub.name)}</span><span class="ag-name">${esc(x.m.name)}${late ? '<span class="chip rest">期限超過</span>' : ''}${state}</span><b class="ag-amt${c.packed ? ' packed' : ''}">${esc(fmtUnits(c.items, x.m.suffix)) || '—'}</b>`;
+      const can = editable && i <= TODAY && (c.planned > 0 || c.actual != null);
+      return can ? `<li><button class="ag-row" data-act="cell" data-id="${esc(st.id)}" data-mat="${esc(x.m.id)}" data-i="${i}" aria-label="${w.label} ${esc(x.m.name)}の実績を記録">${inner}</button></li>` : `<li><div class="ag-row">${inner}</div></li>`;
+    });
+    const cls = ['ag-week'];
+    if (i === TODAY) cls.push('now'); else if (i < TODAY) cls.push('past');
+    if (ws) cls.push(ws.level === 'rest' ? 'is-rest' : 'is-half');
+    const status = ws ? `${weekChip(st, i)}<span class="ag-reason">${esc(ws.reason || '')}${ws.memo ? '・' + esc(ws.memo) : ''}</span>` : '';
+    const stBtn = editable ? `<button class="btn small ag-st" data-act="week" data-id="${esc(st.id)}" data-i="${i}">${ws ? '変更' : '休み・半分'}</button>` : '';
+    return `<section class="${cls.join(' ')}"${i === TODAY ? ' id="agNow"' : ''}>
+      <header class="ag-head"><b class="ag-label">${w.label}</b><span class="ag-range">${w.range}</span>${i === TODAY ? '<span class="chip info">今週</span>' : ''}${status}<span class="sp"></span>${stBtn}</header>
+      ${rows.length ? `<ul>${rows.join('')}</ul>` : `<p class="ag-empty">${ws && ws.level === 'rest' ? 'この週はお休みです。' : '予定はありません。'}</p>`}
+    </section>`;
+  };
+  const pastBtn = hiddenPast.length ? `<button class="btn small ghost ag-past" data-act="show-past">今月のこれより前の週（${hiddenPast.length}週）を表示</button>` : '';
+  return `<div class="agenda">${pastBtn}${weeks.map(weekHtml).join('')}</div>`;
+}
+
+function progressList(st, mode) {
+  const editable = mode !== 'student';
+  return `<section class="panel prog-list"><h2>教材の進み具合</h2>${st.subjects.map((sub, si) => `
+    <div class="pl-sub"><span class="ag-sub" style="--c:${SUBJ_COLOR[si % 4]}">${esc(sub.name)}</span></div>
+    ${sub.materials.length ? `<ul>${sub.materials.map((m, mi) => {
+      const r = schedule(st, m), pct = r.n ? Math.round(r.done / r.n * 100) : 0;
+      const status = r.over ? `<span class="chip rest">期限超過 → ${esc(endLabel(r))}</span>` : r.fitted ? `<span class="chip info">期限内に詰めて調整</span>` : (r.done >= r.n && r.n ? `<span class="chip ok">完了</span>` : '');
+      return `<li>
+        <div class="pl-name">${esc(m.name)}${m.note ? `<small>${esc(m.note)}</small>` : ''}</div>
+        <div class="pl-meta"><span class="prog"><b style="width:${pct}%"></b></span><span>${r.done}/${r.n}${esc(subjUnit(m, r.units))}</span><span>週${m.pace}</span><span>期限 ${WEEKS[r.dl].label}</span>${status}</div>
+        ${editable && r.shiftOver ? modeCtlHtml(st, m) : ''}
+        ${mode === 'admin' ? `<div class="matedit"><button class="linkbtn" data-act="edit-mat" data-id="${esc(st.id)}" data-mat="${esc(m.id)}">編集</button>${mi > 0 ? `<button class="linkbtn" data-act="move" data-mat="${esc(m.id)}" data-dir="-1" aria-label="上へ">↑</button>` : ''}${mi < sub.materials.length - 1 ? `<button class="linkbtn" data-act="move" data-mat="${esc(m.id)}" data-dir="1" aria-label="下へ">↓</button>` : ''}</div>` : ''}
+      </li>`;
+    }).join('')}</ul>` : '<p class="muted" style="margin:0 0 8px;font-size:13.5px">教材がまだ登録されていません。</p>'}
+    ${mode === 'admin' ? `<div class="addrow"><button class="btn small" data-act="add-mat" data-id="${esc(st.id)}" data-si="${si}">＋ ${esc(sub.name)}の教材を追加</button></div>` : ''}`).join('')}
+  </section>
+  ${st.subjects.map((sub, si) => `<details class="panel cm"><summary>上原コメント（${esc(sub.name)}）</summary><p>${esc(sub.comment) || '<span class="muted">（コメントなし）</span>'}</p>${mode === 'admin' ? `<button class="linkbtn" data-act="edit-comment" data-id="${esc(st.id)}" data-si="${si}">コメントを編集</button>` : ''}</details>`).join('')}`;
+}
+
 function planView(st, mode) {
   const weeks = windowWeeks();
   const editable = mode !== 'student';
+  const listView = ui.view === 'list';
   const banners = pending(st).map(x => `<div class="alert${x.acked ? ' soft' : ''}"><b>${esc(x.sub.name)}「${esc(x.m.name)}」</b><span>期限 ${WEEKS[x.r.dl].label} → 終了見込み ${esc(endLabel(x.r))}</span>${editable ? `<span class="chip ${x.acked ? 'half' : 'rest'}">${x.acked ? '延長を選択済み' : '調整方法が未選択'}</span>${!x.acked ? `<span class="sp"></span><button class="btn small" data-act="decide-open" data-id="${esc(st.id)}">調整方法を選ぶ</button>` : ''}` : ''}</div>`).join('');
   const back = mode === 'student' ? '' : `<div><button class="linkbtn" data-act="back">← ${mode === 'admin' ? 'ダッシュボード' : '担当生徒一覧'}に戻る</button></div>`;
-  const hint = editable ? `<div class="hint">週の見出しの下の欄をタップすると「休み・半分」を設定できます。今週までのマスをタップすると、実際に終わった量を記録できます。設定すると、残りの計画が自動で組み直されます。</div>` : '';
+  const hint = !editable ? '' : listView
+    ? `<div class="hint">各週の「休み・半分」で、その週の勉強量を設定できます。今週までの行をタップすると、実際に終わった量を記録できます。設定すると、残りの計画が自動で組み直されます。</div>`
+    : `<div class="hint">週の見出しの下の欄をタップすると「休み・半分」を設定できます。今週までのマスをタップすると、実際に終わった量を記録できます。設定すると、残りの計画が自動で組み直されます。</div>`;
   const logs = editable && (st.log || []).length ? `<section class="panel"><h2>この生徒の変更履歴</h2><ul class="log">${st.log.slice(0, 12).map(l => `<li><time>${fmtAt(l.at)}</time><span><b>${esc(l.by)}</b>　${esc(l.text)}</span></li>`).join('')}</ul></section>` : '';
   const minBase = WEEKS[0].y * 12 + WEEKS[0].m - 1, L = WEEKS[WEEKS.length - 1], maxBase = L.y * 12 + L.m - 1 - 2;
+  const legend = listView ? '' : `<div class="legend"><span><i style="box-shadow:inset 0 0 0 2px var(--accent)"></i>今週</span><span><i style="background:var(--rest-weak)"></i>休みの週・期限超過</span><span><i style="background:var(--half-weak)"></i>半分の週</span><span><i style="border-right:3px solid var(--rest)"></i>教材の期限</span><span><b style="color:var(--accent)">太字の青</b>＝詰めて調整した週</span></div>`;
+  const body = listView ? `${agendaView(st, mode)}${progressList(st, mode)}` : st.subjects.map((sub, si) => `<section>
+      <div class="subject-label">${esc(sub.name)}</div>
+      <div class="subj-grid"><div class="tablewrap">${planTable(st, sub, mode, weeks)}</div>${noteBox(st, sub, si, mode)}</div>
+      ${mode === 'admin' ? `<div class="addrow"><button class="btn small" data-act="add-mat" data-id="${esc(st.id)}" data-si="${si}">＋ ${esc(sub.name)}の教材を追加</button></div>` : ''}
+    </section>`).join('');
   return `<div class="stack">
     ${back}
     <div class="plan-title"><div class="titlebox">${esc(st.name.replace(/\s+/g, ''))} 学習計画</div><div class="titlebox goal">${st.goal ? esc(st.goal) + ' に受かるための専用ロードマップ' : '専用ロードマップ'}</div></div>
-    ${weekTodo(st)}
+    ${listView ? '' : weekTodo(st)}
     <div class="toolbar">
-      <button class="btn small" data-act="prev" aria-label="前の月" ${ui.span === 'all' || ui.base <= minBase ? 'disabled' : ''}>◀</button>
-      <span class="period">${periodLabel()}</span>
-      <button class="btn small" data-act="next" aria-label="次の月" ${ui.span === 'all' || ui.base >= maxBase ? 'disabled' : ''}>▶</button>
-      <button class="btn small ghost" data-act="thismonth">今月へ</button>
+      <div class="seg" role="group" aria-label="表示のしかた"><button data-act="view" data-view="list" aria-pressed="${listView}">週ごと</button><button data-act="view" data-view="table" aria-pressed="${!listView}">表</button></div>
       <div class="seg" role="group" aria-label="表示期間"><button data-act="span" data-span="3" aria-pressed="${ui.span === 3}">3か月</button><button data-act="span" data-span="all" aria-pressed="${ui.span === 'all'}">年間</button></div>
       <span class="sp"></span>
       ${mode !== 'student' ? `<span class="muted" style="font-size:13px">担当：${esc(teacherName(st.teacher))}</span>` : ''}
       <button class="btn primary" data-act="pdf" data-id="${esc(st.id)}">PDFで保存</button>
     </div>
-    <div class="legend"><span><i style="box-shadow:inset 0 0 0 2px var(--accent)"></i>今週</span><span><i style="background:var(--rest-weak)"></i>休みの週・期限超過</span><span><i style="background:var(--half-weak)"></i>半分の週</span><span><i style="border-right:3px solid var(--rest)"></i>教材の期限</span><span><b style="color:var(--accent)">太字の青</b>＝詰めて調整した週</span></div>
+    <div class="toolbar period-row">
+      <button class="btn small" data-act="prev" aria-label="前の月" ${ui.span === 'all' || ui.base <= minBase ? 'disabled' : ''}>◀</button>
+      <span class="period">${periodLabel()}</span>
+      <button class="btn small" data-act="next" aria-label="次の月" ${ui.span === 'all' || ui.base >= maxBase ? 'disabled' : ''}>▶</button>
+      <button class="btn small ghost" data-act="thismonth">今月へ</button>
+    </div>
+    ${legend}
     ${banners}
     ${hint}
-    ${st.subjects.map((sub, si) => `<section>
-      <div class="subject-label">${esc(sub.name)}</div>
-      <div class="subj-grid"><div class="tablewrap">${planTable(st, sub, mode, weeks)}</div>${noteBox(st, sub, si, mode)}</div>
-      ${mode === 'admin' ? `<div class="addrow"><button class="btn small" data-act="add-mat" data-id="${esc(st.id)}" data-si="${si}">＋ ${esc(sub.name)}の教材を追加</button></div>` : ''}
-    </section>`).join('')}
+    ${body}
     ${logs}
   </div>`;
 }
@@ -680,10 +743,12 @@ app.addEventListener('click', async e => {
     case 'edit-student': studentDialog(st); break;
     case 'rename-teacher': renameTeacherDialog(D.teachers.find(x => x.id === t.dataset.id)); break;
     case 'renew': renewDialog(t.dataset.kind, t.dataset.id); break;
-    case 'prev': ui.base -= 1; render(); break;
-    case 'next': ui.base += 1; render(); break;
-    case 'thismonth': ui.base = WEEKS[TODAY].y * 12 + (WEEKS[TODAY].m - 1); ui.span = 3; render(); break;
-    case 'span': ui.span = t.dataset.span === 'all' ? 'all' : 3; render(); break;
+    case 'prev': ui.base -= 1; ui.showPast = false; render(); break;
+    case 'next': ui.base += 1; ui.showPast = false; render(); break;
+    case 'thismonth': ui.base = WEEKS[TODAY].y * 12 + (WEEKS[TODAY].m - 1); ui.span = 3; ui.showPast = false; render(); break;
+    case 'span': ui.span = t.dataset.span === 'all' ? 'all' : 3; ui.showPast = false; render(); break;
+    case 'view': ui.view = t.dataset.view === 'table' ? 'table' : 'list'; lsSet('monju-view-' + KIND, ui.view); render(); break;
+    case 'show-past': ui.showPast = true; render(); break;
     case 'pdf': exportPdf(st, t); break;
     case 'copy': {
       const text = t.dataset.text;
@@ -791,6 +856,9 @@ if (standalone && location.hash) history.replaceState(null, '', location.pathnam
 if (!standalone && !isIOS && location.hash) history.replaceState(null, '', location.pathname);
 
 if ('serviceWorker' in navigator) window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {}); });
+
+/* ---------- default view: phones get the week list ---------- */
+ui.view = lsGet('monju-view-' + KIND) || ((window.matchMedia && matchMedia('(max-width: 700px)').matches) ? 'list' : 'table');
 
 /* ---------- start ---------- */
 if (!KEY) loginView();

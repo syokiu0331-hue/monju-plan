@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>文殊 学習計画</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#2a55ae">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="../icons/student-192.png">
+<link rel="apple-touch-icon" href="../icons/student-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="学習計画">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../app.css">
+</head>
+<body>
+<header class="appbar"><div class="wrap">
+  <div class="brand">文殊 学習計画<small id="schoolName"></small></div>
+  <div class="who" id="who"></div>
+</div></header>
+<div class="install-hint" id="installHint" hidden></div>
+<main><div class="wrap" id="app"><div class="empty">読み込み中…</div></div></main>
+<div class="modal" id="modal" hidden><div class="dialog" id="dialog" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast" hidden></div>
+<div class="busy" id="busy" hidden>保存中…</div>
+<div id="pdfStage" aria-hidden="true"></div>
+<script src="../config.js"></script>
+<script>window.APP_KIND = "student";</script>
+<script src="../app.js"></script>
+</body>
+</html>

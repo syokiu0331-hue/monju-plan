@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "文殊 学習計画ボード（講師用）",
+  "short_name": "講師ボード",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f2f4f8",
+  "theme_color": "#17203a",
+  "icons": [
+    { "src": "../icons/teacher-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "../icons/teacher-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "../icons/teacher-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

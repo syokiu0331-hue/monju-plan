@@ -226,3 +226,9 @@ body{padding-bottom:env(safe-area-inset-bottom,0px)}
   .brand small{display:none}
   .who{gap:6px;white-space:nowrap}
 }
+
+.skel{display:flex;flex-direction:column;gap:16px;padding-top:4px}
+.sk{border-radius:var(--r);background:linear-gradient(90deg,var(--sunk) 0%,var(--surface) 45%,var(--sunk) 90%);background-size:220% 100%;animation:skel 1.3s ease-in-out infinite}
+@keyframes skel{0%{background-position:120% 0}100%{background-position:-120% 0}}
+.login-icon{width:72px;height:72px;border-radius:18px;box-shadow:0 6px 18px rgb(0 0 0 / .18)}
+@media (prefers-reduced-motion:reduce){.sk{animation:none}}

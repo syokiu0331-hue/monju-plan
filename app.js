@@ -176,6 +176,17 @@ const studentById = id => D.students.find(s => s.id === id);
 const fmtAt = s => { const [d, t] = String(s).split('T'); const [, m, dd] = d.split('-'); return `${+m}/${+dd} ${(t || '').slice(0, 5)}`; };
 const subjUnit = (m, items) => (m.suffix && /^\d/.test(items[0] || '')) ? m.suffix : '項目';
 
+/* ---------- splash & skeleton ---------- */
+const T0 = Date.now();
+let splashGone = false, slowTimer = null;
+function hideSplash() {
+  if (splashGone) return; splashGone = true; clearTimeout(slowTimer);
+  const s = document.getElementById('splash'); if (!s) return;
+  setTimeout(() => { s.classList.add('hide'); setTimeout(() => s.remove(), 450); }, Math.max(0, 700 - (Date.now() - T0)));
+}
+slowTimer = setTimeout(() => { const n = document.getElementById('splashNote'); if (n) n.textContent = '通信に時間がかかっています…'; }, 6000);
+const skeleton = () => `<div class="skel" aria-label="読み込み中"><div class="sk" style="height:64px"></div><div class="sk" style="height:132px"></div><div class="sk" style="height:38px;width:60%"></div><div class="sk" style="height:260px"></div></div>`;
+
 /* ---------- views ---------- */
 function weekTodo(st) {
   const w = WEEKS[TODAY];
@@ -200,6 +211,7 @@ function render() {
   if (D.role === 'student') app.innerHTML = st ? planView(st, 'student') : `<div class="empty">計画が見つかりません。</div>`;
   else if (D.role === 'teacher') app.innerHTML = st ? planView(st, 'teacher') : teacherHome();
   else app.innerHTML = st ? planView(st, 'admin') : adminHome();
+  hideSplash();
 }
 
 function thisWeekSummary(st) {
@@ -700,6 +712,7 @@ const appTitle = KIND === 'student' ? '文殊 学習計画' : '文殊 学習計�
 function loginView(msg) {
   document.getElementById('who').innerHTML = '';
   app.innerHTML = `<section class="panel login">
+    <img class="login-icon" src="${KIND}-192.png" alt="" width="72" height="72">
     <div class="eyebrow">${KIND === 'student' ? '生徒用' : '講師用'}</div>
     <h1>${esc(appTitle)}</h1>
     <p>はじめて使うときだけ、塾から届いた専用URLを貼り付けてください。次からは、このアプリを開くだけで使えます。</p>
@@ -709,9 +722,10 @@ function loginView(msg) {
       <button class="btn primary" type="submit">はじめる</button>
     </form>
   </section>`;
+  hideSplash();
 }
 async function boot(silent) {
-  if (!silent) app.innerHTML = `<div class="empty">読み込み中…</div>`;
+  if (!silent) app.innerHTML = skeleton();
   try {
     const p = await call('api_boot');
     setData(p);
@@ -722,6 +736,7 @@ async function boot(silent) {
     if (e.server && /URL/.test(e.message)) { lsDel(LS_KEY); lsDel(LS_CACHE); KEY = ''; D = null; loginView(cleanErr(e)); return; }
     if (D) { toast(e.offline ? '通信できないため、前回読み込んだ内容を表示しています' : cleanErr(e)); return; }
     app.innerHTML = `<div class="empty">${esc(cleanErr(e))}<div style="margin-top:12px"><button class="btn" type="button" data-shell="retry">もう一度読み込む</button></div></div>`;
+    hideSplash();
   }
 }
 const fmtClock = t => { if (!t) return '—'; const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };

@@ -1,5 +1,5 @@
 // 文殊 学習計画アプリ — 画面の部品をスマホに保存して、すぐ開けるようにする（データは毎回サーバーから読む）
-const CACHE = 'monju-shell-v2';
+const CACHE = 'monju-shell-v3';
 const SHELL = ['app.css', 'app.js', 'config.js', 'student.html', 'teacher.html', 'manifest-student.webmanifest', 'manifest-teacher.webmanifest',
   'student-192.png', 'student-180.png', 'teacher-192.png', 'teacher-180.png'];
 self.addEventListener('install', e => {

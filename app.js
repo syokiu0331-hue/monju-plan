@@ -775,7 +775,7 @@ if (isIOS && !standalone) showInstall(`<span>画面下の <b>共有ボタン</b>
 if (standalone && location.hash) history.replaceState(null, '', location.pathname);
 if (!standalone && !isIOS && location.hash) history.replaceState(null, '', location.pathname);
 
-if ('serviceWorker' in navigator) window.addEventListener('load', () => { navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {}); });
+if ('serviceWorker' in navigator) window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {}); });
 
 /* ---------- start ---------- */
 if (!KEY) loginView();
